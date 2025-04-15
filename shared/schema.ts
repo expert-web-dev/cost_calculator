@@ -111,3 +111,62 @@ export const movingEstimatesRelations = relations(movingEstimates, ({ one }) => 
     references: [users.id],
   }),
 }));
+
+// Moving checklist schema
+export const movingChecklists = pgTable("moving_checklists", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  estimateId: integer("estimate_id").references(() => movingEstimates.id),
+  moveDate: text("move_date").notNull(),
+  createdAt: text("created_at").notNull().default(new Date().toISOString()),
+});
+
+export type MoveChecklist = typeof movingChecklists.$inferSelect;
+export type InsertMoveChecklist = z.infer<typeof insertMoveChecklistSchema>;
+
+// Moving checklist item schema
+export const checklistItems = pgTable("checklist_items", {
+  id: serial("id").primaryKey(),
+  checklistId: integer("checklist_id").references(() => movingChecklists.id).notNull(),
+  task: text("task").notNull(),
+  description: text("description"),
+  category: text("category").notNull(),
+  timeframe: text("timeframe").notNull(), // e.g., "8-weeks", "4-weeks", "2-weeks", "1-week", "moving-day", "after-move"
+  completed: boolean("completed").default(false).notNull(),
+  createdAt: text("created_at").notNull().default(new Date().toISOString()),
+});
+
+export type ChecklistItem = typeof checklistItems.$inferSelect;
+export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
+
+// Schema for inserting a new moving checklist
+export const insertMoveChecklistSchema = createInsertSchema(movingChecklists).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Schema for inserting a new checklist item
+export const insertChecklistItemSchema = createInsertSchema(checklistItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Relations 
+export const movingChecklistsRelations = relations(movingChecklists, ({ one, many }) => ({
+  user: one(users, {
+    fields: [movingChecklists.userId],
+    references: [users.id],
+  }),
+  estimate: one(movingEstimates, {
+    fields: [movingChecklists.estimateId],
+    references: [movingEstimates.id],
+  }),
+  items: many(checklistItems),
+}));
+
+export const checklistItemsRelations = relations(checklistItems, ({ one }) => ({
+  checklist: one(movingChecklists, {
+    fields: [checklistItems.checklistId],
+    references: [movingChecklists.id],
+  }),
+}));

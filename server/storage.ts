@@ -1,4 +1,10 @@
-import { users, movingEstimates, type User, type InsertUser, type MoveEstimate, type InsertMoveEstimate } from "@shared/schema";
+import { 
+  users, movingEstimates, movingChecklists, checklistItems,
+  type User, type InsertUser, 
+  type MoveEstimate, type InsertMoveEstimate,
+  type MoveChecklist, type InsertMoveChecklist,
+  type ChecklistItem, type InsertChecklistItem
+} from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import session from "express-session";
@@ -20,6 +26,17 @@ export interface IStorage {
   getAllMoveEstimates(): Promise<MoveEstimate[]>;
   getUserEstimates(userId: number): Promise<MoveEstimate[]>;
   
+  // Moving checklist methods
+  createMoveChecklist(checklist: InsertMoveChecklist): Promise<MoveChecklist>;
+  getMoveChecklist(id: number): Promise<MoveChecklist | undefined>;
+  getUserChecklists(userId: number): Promise<MoveChecklist[]>;
+  getChecklistByEstimate(estimateId: number): Promise<MoveChecklist | undefined>;
+  
+  // Checklist items methods
+  createChecklistItem(item: InsertChecklistItem): Promise<ChecklistItem>;
+  getChecklistItems(checklistId: number): Promise<ChecklistItem[]>;
+  updateChecklistItem(id: number, completed: boolean): Promise<ChecklistItem | undefined>;
+  
   // Session store for authentication
   sessionStore: session.Store;
 }
@@ -28,15 +45,23 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private moveEstimates: Map<number, MoveEstimate>;
+  private moveChecklists: Map<number, MoveChecklist>;
+  private checklistItems: Map<number, ChecklistItem>;
   private currentUserId: number;
   private currentEstimateId: number;
+  private currentChecklistId: number;
+  private currentChecklistItemId: number;
   public sessionStore: session.Store;
 
   constructor() {
     this.users = new Map();
     this.moveEstimates = new Map();
+    this.moveChecklists = new Map();
+    this.checklistItems = new Map();
     this.currentUserId = 1;
     this.currentEstimateId = 1;
+    this.currentChecklistId = 1;
+    this.currentChecklistItemId = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     });
@@ -82,6 +107,63 @@ export class MemStorage implements IStorage {
   async getUserEstimates(userId: number): Promise<MoveEstimate[]> {
     return Array.from(this.moveEstimates.values())
       .filter(estimate => estimate.userId === userId);
+  }
+  
+  // Moving checklist methods
+  async createMoveChecklist(insertChecklist: InsertMoveChecklist): Promise<MoveChecklist> {
+    const id = this.currentChecklistId++;
+    const now = new Date().toISOString();
+    const checklist: MoveChecklist = {
+      ...insertChecklist,
+      id,
+      createdAt: now
+    };
+    this.moveChecklists.set(id, checklist);
+    return checklist;
+  }
+  
+  async getMoveChecklist(id: number): Promise<MoveChecklist | undefined> {
+    return this.moveChecklists.get(id);
+  }
+  
+  async getUserChecklists(userId: number): Promise<MoveChecklist[]> {
+    return Array.from(this.moveChecklists.values())
+      .filter(checklist => checklist.userId === userId);
+  }
+  
+  async getChecklistByEstimate(estimateId: number): Promise<MoveChecklist | undefined> {
+    return Array.from(this.moveChecklists.values())
+      .find(checklist => checklist.estimateId === estimateId);
+  }
+  
+  // Checklist items methods
+  async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
+    const id = this.currentChecklistItemId++;
+    const now = new Date().toISOString();
+    const item: ChecklistItem = {
+      ...insertItem,
+      id,
+      createdAt: now
+    };
+    this.checklistItems.set(id, item);
+    return item;
+  }
+  
+  async getChecklistItems(checklistId: number): Promise<ChecklistItem[]> {
+    return Array.from(this.checklistItems.values())
+      .filter(item => item.checklistId === checklistId);
+  }
+  
+  async updateChecklistItem(id: number, completed: boolean): Promise<ChecklistItem | undefined> {
+    const item = this.checklistItems.get(id);
+    if (!item) return undefined;
+    
+    const updatedItem: ChecklistItem = {
+      ...item,
+      completed
+    };
+    this.checklistItems.set(id, updatedItem);
+    return updatedItem;
   }
 }
 
@@ -146,6 +228,57 @@ export class DatabaseStorage implements IStorage {
   
   async getUserEstimates(userId: number): Promise<MoveEstimate[]> {
     return db.select().from(movingEstimates).where(eq(movingEstimates.userId, userId));
+  }
+  
+  // Moving checklist methods
+  async createMoveChecklist(insertChecklist: InsertMoveChecklist): Promise<MoveChecklist> {
+    const checklistData = {
+      ...insertChecklist,
+      userId: insertChecklist.userId || null,
+      estimateId: insertChecklist.estimateId || null
+    };
+    
+    const [checklist] = await db
+      .insert(movingChecklists)
+      .values(checklistData)
+      .returning();
+    return checklist;
+  }
+  
+  async getMoveChecklist(id: number): Promise<MoveChecklist | undefined> {
+    const [checklist] = await db.select().from(movingChecklists).where(eq(movingChecklists.id, id));
+    return checklist || undefined;
+  }
+  
+  async getUserChecklists(userId: number): Promise<MoveChecklist[]> {
+    return db.select().from(movingChecklists).where(eq(movingChecklists.userId, userId));
+  }
+  
+  async getChecklistByEstimate(estimateId: number): Promise<MoveChecklist | undefined> {
+    const [checklist] = await db.select().from(movingChecklists).where(eq(movingChecklists.estimateId, estimateId));
+    return checklist || undefined;
+  }
+  
+  // Checklist items methods
+  async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
+    const [item] = await db
+      .insert(checklistItems)
+      .values(insertItem)
+      .returning();
+    return item;
+  }
+  
+  async getChecklistItems(checklistId: number): Promise<ChecklistItem[]> {
+    return db.select().from(checklistItems).where(eq(checklistItems.checklistId, checklistId));
+  }
+  
+  async updateChecklistItem(id: number, completed: boolean): Promise<ChecklistItem | undefined> {
+    const [item] = await db
+      .update(checklistItems)
+      .set({ completed })
+      .where(eq(checklistItems.id, id))
+      .returning();
+    return item || undefined;
   }
 }
 

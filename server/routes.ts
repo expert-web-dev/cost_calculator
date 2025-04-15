@@ -4,7 +4,9 @@ import { storage } from "./storage";
 import { 
   moveCalculationRequestSchema, 
   type MoveCalculationResponse,
-  insertMoveEstimateSchema
+  insertMoveEstimateSchema,
+  insertMoveChecklistSchema,
+  insertChecklistItemSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -113,6 +115,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error saving estimate:', error);
         res.status(500).json({ message: 'Internal server error' });
       }
+    }
+  });
+
+  // Checklist API endpoints
+  
+  // Create a new moving checklist
+  app.post('/api/checklists', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      
+      // Validate request data
+      const validatedData = insertMoveChecklistSchema.omit({ createdAt: true }).parse(req.body);
+      
+      // Add the user ID to the checklist
+      const checklistWithUser = {
+        ...validatedData,
+        userId
+      };
+      
+      const checklist = await storage.createMoveChecklist(checklistWithUser);
+      
+      // Generate initial checklist items based on move date
+      const moveDate = new Date(checklist.moveDate);
+      await generateDefaultChecklistItems(checklist.id, moveDate);
+      
+      // Get the generated items
+      const items = await storage.getChecklistItems(checklist.id);
+      
+      res.status(201).json({
+        checklist,
+        items
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        res.status(400).json({ 
+          message: 'Validation error',
+          errors: validationError.details
+        });
+      } else {
+        console.error('Error creating checklist:', error);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    }
+  });
+  
+  // Get all checklists for the current user
+  app.get('/api/checklists', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      const checklists = await storage.getUserChecklists(userId);
+      res.json(checklists);
+    } catch (error) {
+      console.error('Error retrieving checklists:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  // Get a specific checklist with its items
+  app.get('/api/checklists/:id', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const checklistId = parseInt(req.params.id);
+      const checklist = await storage.getMoveChecklist(checklistId);
+      
+      if (!checklist) {
+        return res.status(404).json({ message: 'Checklist not found' });
+      }
+      
+      // Check if this checklist belongs to the current user
+      if (checklist.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Unauthorized access to this checklist' });
+      }
+      
+      const items = await storage.getChecklistItems(checklistId);
+      
+      res.json({
+        checklist,
+        items
+      });
+    } catch (error) {
+      console.error('Error retrieving checklist:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  // Get a checklist for a specific estimate
+  app.get('/api/estimates/:id/checklist', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const estimateId = parseInt(req.params.id);
+      const checklist = await storage.getChecklistByEstimate(estimateId);
+      
+      if (!checklist) {
+        return res.status(404).json({ message: 'No checklist found for this estimate' });
+      }
+      
+      // Check if this checklist belongs to the current user
+      if (checklist.userId !== req.user!.id) {
+        return res.status(403).json({ message: 'Unauthorized access to this checklist' });
+      }
+      
+      const items = await storage.getChecklistItems(checklist.id);
+      
+      res.json({
+        checklist,
+        items
+      });
+    } catch (error) {
+      console.error('Error retrieving estimate checklist:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  // Update a checklist item (mark as complete/incomplete)
+  app.patch('/api/checklist-items/:id', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const itemId = parseInt(req.params.id);
+      const { completed } = req.body;
+      
+      if (typeof completed !== 'boolean') {
+        return res.status(400).json({ message: 'The completed property must be a boolean' });
+      }
+      
+      const updatedItem = await storage.updateChecklistItem(itemId, completed);
+      
+      if (!updatedItem) {
+        return res.status(404).json({ message: 'Checklist item not found' });
+      }
+      
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('Error updating checklist item:', error);
+      res.status(500).json({ message: 'Internal server error' });
     }
   });
 
