@@ -8,6 +8,7 @@ import { FAQ } from "@/components/FAQ";
 import { Footer } from "@/components/Footer";
 import { UserProfile } from "@/components/UserProfile";
 import { StressReliefGame } from "@/components/StressReliefGame";
+import { MovingCostHeatmap } from "@/components/MovingCostHeatmap";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -22,6 +23,7 @@ export default function Home() {
           <Tabs defaultValue="calculator" className="mb-8">
             <TabsList className="mb-6">
               <TabsTrigger value="calculator">Moving Calculator</TabsTrigger>
+              <TabsTrigger value="heatmap">Cost Heatmap</TabsTrigger>
               <TabsTrigger value="checklist">Moving Checklist</TabsTrigger>
               <TabsTrigger value="stress-relief">Stress Relief</TabsTrigger>
               <TabsTrigger value="profile">My Profile</TabsTrigger>
@@ -29,6 +31,15 @@ export default function Home() {
             <TabsContent value="calculator">
               <HeroSection />
               <MovingCalculator />
+            </TabsContent>
+            <TabsContent value="heatmap">
+              <div className="my-8">
+                <h2 className="text-3xl font-bold text-center mb-8">Interactive Moving Cost Heatmap</h2>
+                <p className="text-center text-gray-600 max-w-3xl mx-auto mb-8">
+                  Visualize how moving costs vary across the United States with our interactive heatmap. Select origin cities, home sizes, and view costs for DIY, hybrid, or full-service moves.
+                </p>
+                <MovingCostHeatmap />
+              </div>
             </TabsContent>
             <TabsContent value="checklist">
               <div className="max-w-4xl mx-auto my-8">
@@ -49,6 +60,13 @@ export default function Home() {
           <>
             <HeroSection />
             <MovingCalculator />
+            <div className="mb-16 mt-16">
+              <h2 className="text-3xl font-bold text-center mb-8">Interactive Moving Cost Heatmap</h2>
+              <p className="text-center text-gray-600 max-w-3xl mx-auto mb-8">
+                Visualize how moving costs vary across the United States with our interactive heatmap. Select origin cities, home sizes, and view costs for DIY, hybrid, or full-service moves.
+              </p>
+              <MovingCostHeatmap />
+            </div>
           </>
         )}
         <ImageGallery />
