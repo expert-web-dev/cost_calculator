@@ -40,6 +40,10 @@ type FormValues = z.infer<typeof formSchema>;
 export function CalculatorForm({ currentStep, setCurrentStep, setResults, results }: CalculatorFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [savingEstimate, setSavingEstimate] = useState(false);
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   
   const { suggestions: originSuggestions, query: originQuery, setQuery: setOriginQuery } = useAddressAutocomplete();
   const { suggestions: destSuggestions, query: destQuery, setQuery: setDestQuery } = useAddressAutocomplete();
@@ -126,6 +130,60 @@ export function CalculatorForm({ currentStep, setCurrentStep, setResults, result
   // Handle printing results
   const handlePrint = () => {
     window.print();
+  };
+  
+  // Handle saving estimate to user profile
+  const saveEstimateMutation = useMutation({
+    mutationFn: async () => {
+      if (!results) return null;
+      
+      const estimateData = {
+        origin: results.origin,
+        destination: results.destination,
+        distance: results.distance,
+        homeSize: results.homeSize,
+        additionalItems: form.getValues("additionalItems") || "none",
+        moveDate: format(form.getValues("moveDate"), "yyyy-MM-dd"),
+        flexibility: form.getValues("flexibility") || "exact",
+        services: form.getValues("services") || [],
+        costDiy: results.costs.diy,
+        costHybrid: results.costs.hybrid,
+        costFullService: results.costs.fullService,
+      };
+      
+      const response = await apiRequest("POST", "/api/save-estimate", estimateData);
+      return response.json();
+    },
+    onSuccess: (data: MoveEstimate) => {
+      setSavingEstimate(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/my-estimates"] });
+      toast({
+        title: "Estimate saved!",
+        description: "You can view this estimate in your profile.",
+      });
+    },
+    onError: (error) => {
+      setSavingEstimate(false);
+      toast({
+        title: "Error saving estimate",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const handleSaveEstimate = () => {
+    if (!user) {
+      toast({
+        title: "Login required",
+        description: "Please login or register to save estimates",
+      });
+      navigate("/auth");
+      return;
+    }
+    
+    setSavingEstimate(true);
+    saveEstimateMutation.mutate();
   };
 
   const handleSelectOriginSuggestion = (suggestion: string) => {
@@ -513,6 +571,23 @@ export function CalculatorForm({ currentStep, setCurrentStep, setResults, result
               <h3 className="text-xl font-medium text-gray-900">Your Moving Options</h3>
               
               <div className="flex items-center space-x-2">
+                <Button 
+                  type="button" 
+                  variant="ghost"
+                  className="inline-flex items-center text-primary hover:text-indigo-700 font-medium"
+                  onClick={handleSaveEstimate}
+                  disabled={savingEstimate}
+                >
+                  {savingEstimate ? (
+                    <>
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-1 h-4 w-4" /> Save Estimate
+                    </>
+                  )}
+                </Button>
                 <Button 
                   type="button" 
                   variant="ghost"

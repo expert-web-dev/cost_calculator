@@ -1,7 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { moveCalculationRequestSchema, type MoveCalculationResponse } from "@shared/schema";
+import { 
+  moveCalculationRequestSchema, 
+  type MoveCalculationResponse,
+  insertMoveEstimateSchema
+} from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { ADDITIONAL_ITEM_COSTS, BASE_COSTS, COST_PER_MILE, SAMPLE_COMPANIES } from "../client/src/lib/constants";
@@ -86,19 +90,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const estimateData = req.body;
+      
+      // Validate request data
+      const validatedData = insertMoveEstimateSchema.omit({ createdAt: true }).parse(req.body);
       
       // Add the user ID to the estimate
       const estimateWithUser = {
-        ...estimateData,
+        ...validatedData,
         userId
       };
       
       const estimate = await storage.createMoveEstimate(estimateWithUser);
       res.status(201).json(estimate);
     } catch (error) {
-      console.error('Error saving estimate:', error);
-      res.status(500).json({ message: 'Internal server error' });
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        res.status(400).json({ 
+          message: 'Validation error',
+          errors: validationError.details
+        });
+      } else {
+        console.error('Error saving estimate:', error);
+        res.status(500).json({ message: 'Internal server error' });
+      }
     }
   });
 
