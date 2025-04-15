@@ -1,9 +1,10 @@
 import { 
-  users, movingEstimates, movingChecklists, checklistItems,
+  users, movingEstimates, movingChecklists, checklistItems, userProgress,
   type User, type InsertUser, 
   type MoveEstimate, type InsertMoveEstimate,
   type MoveChecklist, type InsertMoveChecklist,
-  type ChecklistItem, type InsertChecklistItem
+  type ChecklistItem, type InsertChecklistItem,
+  type UserProgress, type InsertUserProgress
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -37,6 +38,11 @@ export interface IStorage {
   getChecklistItems(checklistId: number): Promise<ChecklistItem[]>;
   updateChecklistItem(id: number, completed: boolean): Promise<ChecklistItem | undefined>;
   
+  // User progress methods for gamification
+  getUserProgress(userId: number): Promise<UserProgress | undefined>;
+  createUserProgress(progress: InsertUserProgress): Promise<UserProgress>;
+  updateUserProgress(userId: number, progress: Partial<InsertUserProgress>): Promise<UserProgress | undefined>;
+  
   // Session store for authentication
   sessionStore: session.Store;
 }
@@ -47,10 +53,12 @@ export class MemStorage implements IStorage {
   private moveEstimates: Map<number, MoveEstimate>;
   private moveChecklists: Map<number, MoveChecklist>;
   private checklistItems: Map<number, ChecklistItem>;
+  private userProgressMap: Map<number, UserProgress>;
   private currentUserId: number;
   private currentEstimateId: number;
   private currentChecklistId: number;
   private currentChecklistItemId: number;
+  private currentProgressId: number;
   public sessionStore: session.Store;
 
   constructor() {
@@ -58,10 +66,12 @@ export class MemStorage implements IStorage {
     this.moveEstimates = new Map();
     this.moveChecklists = new Map();
     this.checklistItems = new Map();
+    this.userProgressMap = new Map();
     this.currentUserId = 1;
     this.currentEstimateId = 1;
     this.currentChecklistId = 1;
     this.currentChecklistItemId = 1;
+    this.currentProgressId = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     });
@@ -181,6 +191,48 @@ export class MemStorage implements IStorage {
     };
     this.checklistItems.set(id, updatedItem);
     return updatedItem;
+  }
+  
+  // User progress methods for gamification
+  async getUserProgress(userId: number): Promise<UserProgress | undefined> {
+    return Array.from(this.userProgressMap.values())
+      .find(progress => progress.userId === userId);
+  }
+  
+  async createUserProgress(insertProgress: InsertUserProgress): Promise<UserProgress> {
+    const id = this.currentProgressId++;
+    const now = new Date().toISOString();
+    
+    // Ensure all fields have proper types with defaults
+    const progress: UserProgress = {
+      ...insertProgress,
+      points: insertProgress.points !== undefined ? insertProgress.points : 0,
+      level: insertProgress.level !== undefined ? insertProgress.level : 1,
+      streak: insertProgress.streak !== undefined ? insertProgress.streak : 0,
+      lastInteraction: insertProgress.lastInteraction || now,
+      achievements: Array.isArray(insertProgress.achievements) ? insertProgress.achievements : [],
+      id,
+      createdAt: now
+    };
+    
+    this.userProgressMap.set(id, progress);
+    return progress;
+  }
+  
+  async updateUserProgress(userId: number, progressUpdate: Partial<InsertUserProgress>): Promise<UserProgress | undefined> {
+    const progress = Array.from(this.userProgressMap.values())
+      .find(p => p.userId === userId);
+    
+    if (!progress) return undefined;
+    
+    const updatedProgress: UserProgress = {
+      ...progress,
+      ...progressUpdate,
+      achievements: progressUpdate.achievements || progress.achievements
+    };
+    
+    this.userProgressMap.set(progress.id, updatedProgress);
+    return updatedProgress;
   }
 }
 
@@ -325,6 +377,55 @@ export class DatabaseStorage implements IStorage {
       .where(eq(checklistItems.id, id))
       .returning();
     return item || undefined;
+  }
+  
+  // User progress methods for gamification
+  async getUserProgress(userId: number): Promise<UserProgress | undefined> {
+    const [progress] = await db.select().from(userProgress).where(eq(userProgress.userId, userId));
+    return progress || undefined;
+  }
+  
+  async createUserProgress(insertProgress: InsertUserProgress): Promise<UserProgress> {
+    const now = new Date().toISOString();
+    
+    // Ensure all fields have proper types with defaults
+    const progressData = {
+      ...insertProgress,
+      points: insertProgress.points !== undefined ? insertProgress.points : 0,
+      level: insertProgress.level !== undefined ? insertProgress.level : 1,
+      streak: insertProgress.streak !== undefined ? insertProgress.streak : 0,
+      lastInteraction: insertProgress.lastInteraction || now,
+      achievements: Array.isArray(insertProgress.achievements) ? insertProgress.achievements : []
+    };
+    
+    const [progress] = await db
+      .insert(userProgress)
+      .values(progressData)
+      .returning();
+    return progress;
+  }
+  
+  async updateUserProgress(userId: number, progressUpdate: Partial<InsertUserProgress>): Promise<UserProgress | undefined> {
+    // Get existing progress first
+    const existingProgress = await this.getUserProgress(userId);
+    if (!existingProgress) return undefined;
+    
+    // Create updated record with proper handling of arrays
+    const updatedData: Partial<UserProgress> = {
+      ...progressUpdate
+    };
+    
+    // Only include achievements if provided
+    if (progressUpdate.achievements) {
+      updatedData.achievements = progressUpdate.achievements;
+    }
+    
+    const [progress] = await db
+      .update(userProgress)
+      .set(updatedData)
+      .where(eq(userProgress.userId, userId))
+      .returning();
+    return progress || undefined;
   }
 }
 
