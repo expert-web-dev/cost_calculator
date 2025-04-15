@@ -1,4 +1,6 @@
-import { users, type User, type InsertUser, type MoveEstimate, type InsertMoveEstimate } from "@shared/schema";
+import { users, movingEstimates, type User, type InsertUser, type MoveEstimate, type InsertMoveEstimate } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -14,6 +16,7 @@ export interface IStorage {
   getAllMoveEstimates(): Promise<MoveEstimate[]>;
 }
 
+// In-memory storage implementation (kept for reference or fallback)
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private moveEstimates: Map<number, MoveEstimate>;
@@ -65,4 +68,46 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database storage implementation
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+  
+  async createMoveEstimate(insertEstimate: InsertMoveEstimate): Promise<MoveEstimate> {
+    const [estimate] = await db
+      .insert(movingEstimates)
+      .values(insertEstimate)
+      .returning();
+    return estimate;
+  }
+  
+  async getMoveEstimate(id: number): Promise<MoveEstimate | undefined> {
+    const [estimate] = await db.select().from(movingEstimates).where(eq(movingEstimates.id, id));
+    return estimate || undefined;
+  }
+  
+  async getAllMoveEstimates(): Promise<MoveEstimate[]> {
+    return db.select().from(movingEstimates);
+  }
+}
+
+// Uncomment this line to use DatabaseStorage
+export const storage = new DatabaseStorage();
+
+// Use this line for fallback to in-memory storage if needed
+// export const storage = new MemStorage();

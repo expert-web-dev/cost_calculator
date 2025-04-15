@@ -20,6 +20,7 @@ export type User = typeof users.$inferSelect;
 // Moving calculation schemas
 export const movingEstimates = pgTable("moving_estimates", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Optional reference to user
   origin: text("origin").notNull(),
   destination: text("destination").notNull(),
   distance: integer("distance").notNull(),
