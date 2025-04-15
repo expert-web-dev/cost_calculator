@@ -218,13 +218,32 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createMoveEstimate(insertEstimate: InsertMoveEstimate): Promise<MoveEstimate> {
+    // Extract required properties
+    const { 
+      origin, 
+      destination, 
+      distance,
+      homeSize,
+      moveDate,
+      costDiy,
+      costHybrid,
+      costFullService
+    } = insertEstimate;
+    
+    // Prepare data with proper types for optional fields
     const estimateData = {
-      ...insertEstimate,
-      // Ensure all fields have proper types
+      origin,
+      destination,
+      distance,
+      homeSize,
+      moveDate,
+      costDiy,
+      costHybrid,
+      costFullService,
       userId: insertEstimate.userId || null,
       additionalItems: insertEstimate.additionalItems || null,
       flexibility: insertEstimate.flexibility || null,
-      services: insertEstimate.services || []
+      services: Array.isArray(insertEstimate.services) ? insertEstimate.services : []
     };
     
     const [estimate] = await db
@@ -249,9 +268,13 @@ export class DatabaseStorage implements IStorage {
   
   // Moving checklist methods
   async createMoveChecklist(insertChecklist: InsertMoveChecklist): Promise<MoveChecklist> {
+    // Extract required properties
+    const { userId, moveDate } = insertChecklist;
+    
+    // Prepare data with proper types for optional fields
     const checklistData = {
-      ...insertChecklist,
-      userId: insertChecklist.userId || null,
+      userId,
+      moveDate,
       estimateId: insertChecklist.estimateId || null
     };
     

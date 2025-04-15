@@ -132,9 +132,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request data
       const validatedData = insertMoveChecklistSchema.omit({ createdAt: true }).parse(req.body);
       
+      // Make sure we have all required fields
+      if (!validatedData.moveDate) {
+        return res.status(400).json({ message: 'Move date is required' });
+      }
+      
       // Add the user ID to the checklist
       const checklistWithUser = {
-        ...validatedData,
+        moveDate: validatedData.moveDate,
+        estimateId: validatedData.estimateId || null,
         userId
       };
       
