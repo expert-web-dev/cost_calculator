@@ -759,7 +759,10 @@ export function CalculatorForm({ currentStep, setCurrentStep, setResults, result
               
               <div className="bg-white border rounded-lg overflow-hidden">
                 <div className="p-6">
-                  <CostBreakdownChart breakdown={results.breakdown} />
+                  <CostBreakdownChart 
+                    breakdown={results.breakdown} 
+                    costs={results.costs}
+                  />
                   <div className="text-xs text-gray-500 text-center mt-4">
                     Hover over chart segments to see detailed cost breakdown
                   </div>
