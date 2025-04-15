@@ -6,7 +6,9 @@ import {
   type MoveCalculationResponse,
   insertMoveEstimateSchema,
   insertMoveChecklistSchema,
-  insertChecklistItemSchema
+  insertChecklistItemSchema,
+  insertUserProgressSchema,
+  type UserProgress
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -272,6 +274,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedItem);
     } catch (error) {
       console.error('Error updating checklist item:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // User progress API endpoints for gamification
+  
+  // Get user progress
+  app.get('/api/user-progress', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      let progress = await storage.getUserProgress(userId);
+      
+      // If no progress exists yet, create a new one for the user
+      if (!progress) {
+        progress = await storage.createUserProgress({
+          userId,
+          points: 0,
+          level: 1,
+          achievements: [],
+          streak: 0,
+          lastInteraction: new Date().toISOString()
+        });
+      }
+      
+      res.json(progress);
+    } catch (error) {
+      console.error('Error retrieving user progress:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+  // Update user progress
+  app.patch('/api/user-progress', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      
+      // Validate request data
+      const validatedData = insertUserProgressSchema
+        .partial()
+        .omit({ userId: true, createdAt: true })
+        .parse(req.body);
+      
+      // Get existing progress or create new
+      let progress = await storage.getUserProgress(userId);
+      
+      if (!progress) {
+        // Create new progress with default values
+        progress = await storage.createUserProgress({
+          userId,
+          points: validatedData.points || 0,
+          level: validatedData.level || 1,
+          achievements: validatedData.achievements || [],
+          streak: validatedData.streak || 0,
+          lastInteraction: validatedData.lastInteraction || new Date().toISOString()
+        });
+      } else {
+        // Update existing progress
+        progress = await storage.updateUserProgress(userId, validatedData);
+      }
+      
+      if (!progress) {
+        return res.status(404).json({ message: 'Failed to update user progress' });
+      }
+      
+      res.json(progress);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const validationError = fromZodError(error);
+        res.status(400).json({ 
+          message: 'Validation error',
+          errors: validationError.details
+        });
+      } else {
+        console.error('Error updating user progress:', error);
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    }
+  });
+  
+  // Unlock a new achievement
+  app.post('/api/unlock-achievement', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      const { achievementId, points } = req.body;
+      
+      if (!achievementId || typeof achievementId !== 'string') {
+        return res.status(400).json({ message: 'Achievement ID is required' });
+      }
+      
+      // Get existing progress
+      let progress = await storage.getUserProgress(userId);
+      
+      if (!progress) {
+        // Create new progress if it doesn't exist
+        progress = await storage.createUserProgress({
+          userId,
+          points: points || 0,
+          level: 1,
+          achievements: [achievementId],
+          streak: 0,
+          lastInteraction: new Date().toISOString()
+        });
+      } else {
+        // Check if achievement already unlocked
+        if (progress.achievements.includes(achievementId)) {
+          return res.json({
+            success: false,
+            message: 'Achievement already unlocked',
+            progress
+          });
+        }
+        
+        // Add achievement and points
+        const updatedAchievements = [...progress.achievements, achievementId];
+        const updatedPoints = progress.points + (points || 0);
+        
+        // Calculate new level (every 100 points is a new level)
+        const updatedLevel = Math.floor(updatedPoints / 100) + 1;
+        
+        // Update progress
+        progress = await storage.updateUserProgress(userId, {
+          achievements: updatedAchievements,
+          points: updatedPoints,
+          level: updatedLevel,
+          lastInteraction: new Date().toISOString()
+        });
+      }
+      
+      if (!progress) {
+        return res.status(404).json({ message: 'Failed to update user progress' });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Achievement unlocked',
+        progress
+      });
+    } catch (error) {
+      console.error('Error unlocking achievement:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });

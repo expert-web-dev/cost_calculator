@@ -62,40 +62,47 @@ export function StressReliefGame() {
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   
-  // Fetch user progress data
+  // Fetch user progress data using our implemented API
   const { data: progressData, isLoading: progressLoading } = useQuery<UserProgress>({
     queryKey: ['/api/user-progress'],
-    queryFn: getProgress,
     enabled: !!user, // Only run if user is logged in
   });
   
   // Mutation for updating user progress
   const updateProgressMutation = useMutation({
     mutationFn: async (data: Partial<UserProgress>) => {
-      const res = await apiRequest('POST', '/api/user-progress', data);
+      const res = await apiRequest('PATCH', '/api/user-progress', data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user-progress'] });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating progress",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
   
-  // Function to get progress (fallback to mock data for now if not yet implemented on server)
-  async function getProgress() {
-    try {
-      const response = await apiRequest('GET', '/api/user-progress');
-      return response.json();
-    } catch (error) {
-      // Fallback to mock data if API not implemented yet
-      return {
-        points: 120,
-        level: 2,
-        achievements: ['complete_profile', 'first_checklist', 'first_estimate'],
-        streak: 3,
-        lastInteraction: new Date().toISOString(),
-      };
+  // Mutation for unlocking achievements
+  const unlockAchievementMutation = useMutation({
+    mutationFn: async ({ achievementId, points }: { achievementId: string, points: number }) => {
+      const res = await apiRequest('POST', '/api/unlock-achievement', { achievementId, points });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user-progress'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error unlocking achievement",
+        description: error.message,
+        variant: "destructive",
+      });
     }
-  }
+  });
   
   // Update local state when data is loaded
   useEffect(() => {
@@ -235,46 +242,53 @@ export function StressReliefGame() {
   
   // Function to unlock an achievement
   const unlockAchievement = (achievementId: string) => {
-    if (userProgress.achievements.includes(achievementId)) return;
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please login to track achievements and progress.",
+        variant: "default",
+      });
+      return;
+    }
+    
+    if (userProgress.achievements.includes(achievementId)) {
+      toast({
+        title: "Achievement already unlocked",
+        description: "You've already earned this achievement.",
+        variant: "default",
+      });
+      return;
+    }
     
     const achievement = achievements.find(a => a.id === achievementId);
     if (!achievement) return;
     
-    const updatedAchievements = [...userProgress.achievements, achievementId];
-    const updatedPoints = userProgress.points + achievement.points;
-    
-    // Calculate level (1 level per 100 points)
-    const newLevel = Math.floor(updatedPoints / 100) + 1;
-    const leveledUp = newLevel > userProgress.level;
-    
-    const updatedProgress = {
-      ...userProgress,
-      achievements: updatedAchievements,
-      points: updatedPoints,
-      level: newLevel,
-    };
-    
-    setUserProgress(updatedProgress);
-    updateProgressMutation.mutate(updatedProgress);
-    
-    // Show achievement notification
-    toast({
-      title: `Achievement Unlocked: ${achievement.title}`,
-      description: `${achievement.description} (+${achievement.points} points)`,
-      variant: "default",
-    });
-    
-    // If user leveled up, show celebration effect
-    if (leveledUp) {
-      toast({
-        title: `Level Up! You're now level ${newLevel}`,
-        description: "Keep going! You're making great progress.",
-        variant: "default",
-      });
-      
-      // Trigger confetti effect
-      triggerConfetti();
-    }
+    // Use our new achievement unlock API
+    unlockAchievementMutation.mutate(
+      { achievementId, points: achievement.points },
+      {
+        onSuccess: (data) => {
+          // Show achievement notification
+          toast({
+            title: `Achievement Unlocked: ${achievement.title}`,
+            description: `${achievement.description} (+${achievement.points} points)`,
+            variant: "default",
+          });
+          
+          // Check if user leveled up
+          if (data.progress && data.progress.level > userProgress.level) {
+            toast({
+              title: `Level Up! You're now level ${data.progress.level}`,
+              description: "Keep going! You're making great progress.",
+              variant: "default", 
+            });
+            
+            // Trigger confetti effect
+            triggerConfetti();
+          }
+        }
+      }
+    );
   };
   
   // Function to trigger confetti celebration
