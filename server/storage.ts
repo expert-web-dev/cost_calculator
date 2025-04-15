@@ -87,11 +87,18 @@ export class MemStorage implements IStorage {
   async createMoveEstimate(insertEstimate: InsertMoveEstimate): Promise<MoveEstimate> {
     const id = this.currentEstimateId++;
     const now = new Date().toISOString();
+    
+    // Ensure all fields have proper types
     const estimate: MoveEstimate = { 
-      ...insertEstimate, 
+      ...insertEstimate,
+      userId: insertEstimate.userId || null,
+      additionalItems: insertEstimate.additionalItems || null,
+      flexibility: insertEstimate.flexibility || null,
+      services: Array.isArray(insertEstimate.services) ? insertEstimate.services : [],
       id, 
       createdAt: now 
     };
+    
     this.moveEstimates.set(id, estimate);
     return estimate;
   }
@@ -113,11 +120,16 @@ export class MemStorage implements IStorage {
   async createMoveChecklist(insertChecklist: InsertMoveChecklist): Promise<MoveChecklist> {
     const id = this.currentChecklistId++;
     const now = new Date().toISOString();
+    
+    // Ensure all fields have proper types
     const checklist: MoveChecklist = {
       ...insertChecklist,
+      userId: insertChecklist.userId,
+      estimateId: insertChecklist.estimateId || null,
       id,
       createdAt: now
     };
+    
     this.moveChecklists.set(id, checklist);
     return checklist;
   }
@@ -140,11 +152,16 @@ export class MemStorage implements IStorage {
   async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
     const id = this.currentChecklistItemId++;
     const now = new Date().toISOString();
+    
+    // Ensure all fields have proper types
     const item: ChecklistItem = {
       ...insertItem,
+      description: insertItem.description || null,
+      completed: insertItem.completed !== undefined ? insertItem.completed : false,
       id,
       createdAt: now
     };
+    
     this.checklistItems.set(id, item);
     return item;
   }
@@ -261,9 +278,15 @@ export class DatabaseStorage implements IStorage {
   
   // Checklist items methods
   async createChecklistItem(insertItem: InsertChecklistItem): Promise<ChecklistItem> {
+    const itemData = {
+      ...insertItem,
+      description: insertItem.description || null,
+      completed: insertItem.completed !== undefined ? insertItem.completed : false
+    };
+    
     const [item] = await db
       .insert(checklistItems)
-      .values(insertItem)
+      .values(itemData)
       .returning();
     return item;
   }

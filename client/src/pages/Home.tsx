@@ -1,6 +1,7 @@
 import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/HeroSection";
 import { MovingCalculator } from "@/components/MovingCalculator";
+import { MovingChecklist } from "@/components/MovingChecklist";
 import { ImageGallery } from "@/components/ImageGallery";
 import { Testimonials } from "@/components/Testimonials";
 import { FAQ } from "@/components/FAQ";
@@ -20,11 +21,18 @@ export default function Home() {
           <Tabs defaultValue="calculator" className="mb-8">
             <TabsList className="mb-6">
               <TabsTrigger value="calculator">Moving Calculator</TabsTrigger>
+              <TabsTrigger value="checklist">Moving Checklist</TabsTrigger>
               <TabsTrigger value="profile">My Profile</TabsTrigger>
             </TabsList>
             <TabsContent value="calculator">
               <HeroSection />
               <MovingCalculator />
+            </TabsContent>
+            <TabsContent value="checklist">
+              <div className="max-w-4xl mx-auto my-8">
+                <h2 className="text-3xl font-bold text-center mb-8">Moving Checklist & Timeline</h2>
+                <MovingChecklist />
+              </div>
             </TabsContent>
             <TabsContent value="profile">
               <UserProfile />

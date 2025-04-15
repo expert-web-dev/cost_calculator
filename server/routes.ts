@@ -393,3 +393,186 @@ function calculateServicesCost(services: string[]): { diy: number, hybrid: numbe
   
   return costs;
 }
+
+// Helper function to generate default checklist items for a new checklist
+async function generateDefaultChecklistItems(checklistId: number, moveDate: Date): Promise<void> {
+  // Calculate different time periods relative to move date
+  const eightWeeksBefore = new Date(moveDate);
+  eightWeeksBefore.setDate(moveDate.getDate() - 56);
+  
+  const fourWeeksBefore = new Date(moveDate);
+  fourWeeksBefore.setDate(moveDate.getDate() - 28);
+  
+  const twoWeeksBefore = new Date(moveDate);
+  twoWeeksBefore.setDate(moveDate.getDate() - 14);
+  
+  const oneWeekBefore = new Date(moveDate);
+  oneWeekBefore.setDate(moveDate.getDate() - 7);
+  
+  const oneWeekAfter = new Date(moveDate);
+  oneWeekAfter.setDate(moveDate.getDate() + 7);
+  
+  // Default checklist items
+  const checklistItems = [
+    // 8 weeks before (planning phase)
+    {
+      checklistId,
+      task: "Create a moving budget",
+      description: "Estimate all costs involved in your move including packing supplies, movers, transportation, etc.",
+      category: "planning",
+      timeframe: "8-weeks",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Research moving companies",
+      description: "Get quotes from at least 3 different moving companies for comparison.",
+      category: "planning",
+      timeframe: "8-weeks",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Create a home inventory",
+      description: "Document all your belongings and decide what to keep, sell, donate, or discard.",
+      category: "planning",
+      timeframe: "8-weeks",
+      completed: false
+    },
+    
+    // 4 weeks before (preparation phase)
+    {
+      checklistId,
+      task: "Start packing non-essential items",
+      description: "Begin with items you rarely use like seasonal decorations, books, and extra kitchen items.",
+      category: "packing",
+      timeframe: "4-weeks",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Notify important parties about your move",
+      description: "Update your address with banks, insurance companies, subscription services, etc.",
+      category: "admin",
+      timeframe: "4-weeks",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Schedule utility disconnection and connection",
+      description: "Arrange for utilities to be disconnected at your current home and connected at your new home.",
+      category: "admin",
+      timeframe: "4-weeks",
+      completed: false
+    },
+    
+    // 2 weeks before (action phase)
+    {
+      checklistId,
+      task: "Confirm moving arrangements",
+      description: "Verify date, time, and details with your moving company or rental truck service.",
+      category: "admin",
+      timeframe: "2-weeks",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Pack most of your belongings",
+      description: "Leave out only essential items that you'll need in the final days.",
+      category: "packing",
+      timeframe: "2-weeks",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Clean out the refrigerator and pantry",
+      description: "Use up perishable food items or plan to give them away before the move.",
+      category: "cleaning",
+      timeframe: "2-weeks",
+      completed: false
+    },
+    
+    // 1 week before (final prep)
+    {
+      checklistId,
+      task: "Pack an essentials box",
+      description: "Include items you'll need immediately upon arrival: toiletries, medications, change of clothes, basic kitchen supplies, etc.",
+      category: "packing",
+      timeframe: "1-week",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Disassemble furniture",
+      description: "Take apart larger furniture pieces that won't fit through doors or are easier to move disassembled.",
+      category: "packing",
+      timeframe: "1-week",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Confirm arrival time at new residence",
+      description: "Make sure you can access your new home when you arrive and that utilities are connected.",
+      category: "admin",
+      timeframe: "1-week",
+      completed: false
+    },
+    
+    // Moving day
+    {
+      checklistId,
+      task: "Conduct final walkthrough of old home",
+      description: "Check all rooms, closets, cabinets, and storage areas to ensure nothing is left behind.",
+      category: "moving-day",
+      timeframe: "moving-day",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Document condition of rental property",
+      description: "Take photos of your cleaned rental property to document its condition for your deposit return.",
+      category: "moving-day",
+      timeframe: "moving-day",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Supervise movers",
+      description: "Be available to answer questions and direct movers throughout the loading process.",
+      category: "moving-day",
+      timeframe: "moving-day",
+      completed: false
+    },
+    
+    // After the move
+    {
+      checklistId,
+      task: "Unpack essential items",
+      description: "Focus on setting up the kitchen, bathroom, and bedroom areas first.",
+      category: "unpacking",
+      timeframe: "after-move",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Update your address",
+      description: "File a change of address with the post office and update your driver's license.",
+      category: "admin",
+      timeframe: "after-move",
+      completed: false
+    },
+    {
+      checklistId,
+      task: "Meet your neighbors",
+      description: "Introduce yourself to neighbors and begin getting familiar with the neighborhood.",
+      category: "settling-in",
+      timeframe: "after-move",
+      completed: false
+    }
+  ];
+  
+  // Save each checklist item to storage
+  for (const item of checklistItems) {
+    await storage.createChecklistItem(item);
+  }
+}
