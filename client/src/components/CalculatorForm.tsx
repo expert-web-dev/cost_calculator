@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Share2, Printer, Info, CheckCircle, XCircle, Home, Building, House } from "lucide-react";
+import { CalendarIcon, Share2, Printer, Info, CheckCircle, XCircle, Home, Building, House, Save, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -12,13 +12,15 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { moveCalculationRequestSchema, type MoveCalculationResponse } from "@shared/schema";
-import { useMutation } from "@tanstack/react-query";
+import { moveCalculationRequestSchema, type MoveCalculationResponse, type MoveEstimate } from "@shared/schema";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CostBreakdownChart } from "./CostBreakdownChart";
 import { HOME_SIZES, ADDITIONAL_ITEMS, FLEXIBILITY_OPTIONS } from "@/lib/constants";
 import { useAddressAutocomplete } from "@/lib/useAddressAutocomplete";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 
 interface CalculatorFormProps {
   currentStep: number;

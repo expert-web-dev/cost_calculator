@@ -24,7 +24,7 @@ export function UserProfile() {
     isError
   } = useQuery<MoveEstimate[]>({
     queryKey: ["/api/my-estimates"],
-    queryFn: getQueryFn(),
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user,
   });
 
