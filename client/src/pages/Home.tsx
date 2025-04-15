@@ -7,6 +7,7 @@ import { Testimonials } from "@/components/Testimonials";
 import { FAQ } from "@/components/FAQ";
 import { Footer } from "@/components/Footer";
 import { UserProfile } from "@/components/UserProfile";
+import { StressReliefGame } from "@/components/StressReliefGame";
 import { useAuth } from "@/hooks/use-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -22,6 +23,7 @@ export default function Home() {
             <TabsList className="mb-6">
               <TabsTrigger value="calculator">Moving Calculator</TabsTrigger>
               <TabsTrigger value="checklist">Moving Checklist</TabsTrigger>
+              <TabsTrigger value="stress-relief">Stress Relief</TabsTrigger>
               <TabsTrigger value="profile">My Profile</TabsTrigger>
             </TabsList>
             <TabsContent value="calculator">
@@ -32,6 +34,11 @@ export default function Home() {
               <div className="max-w-4xl mx-auto my-8">
                 <h2 className="text-3xl font-bold text-center mb-8">Moving Checklist & Timeline</h2>
                 <MovingChecklist />
+              </div>
+            </TabsContent>
+            <TabsContent value="stress-relief">
+              <div className="max-w-4xl mx-auto my-8">
+                <StressReliefGame />
               </div>
             </TabsContent>
             <TabsContent value="profile">

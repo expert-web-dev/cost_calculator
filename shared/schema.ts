@@ -170,3 +170,23 @@ export const checklistItemsRelations = relations(checklistItems, ({ one }) => ({
     references: [movingChecklists.id],
   }),
 }));
+
+// User progress for gamification
+export const userProgress = pgTable("user_progress", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  points: integer("points").notNull().default(0),
+  level: integer("level").notNull().default(1),
+  achievements: text("achievements").array().notNull().default([]),
+  streak: integer("streak").notNull().default(0),
+  lastInteraction: text("last_interaction").notNull().default(new Date().toISOString()),
+  createdAt: text("created_at").notNull().default(new Date().toISOString()),
+});
+
+export type UserProgress = typeof userProgress.$inferSelect;
+export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
+
+export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
+  id: true,
+  createdAt: true,
+});
