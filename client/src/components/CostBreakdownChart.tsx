@@ -251,7 +251,7 @@ export function CostBreakdownChart({ breakdown, costs }: CostBreakdownChartProps
                 layout="horizontal" 
                 verticalAlign="bottom" 
                 align="center"
-                formatter={(value, entry, index) => (
+                formatter={(value: string, entry: any, index: number) => (
                   <span className="text-sm font-medium flex items-center">
                     {data[index].icon}
                     <span className="ml-1">{value} (${data[index].value})</span>
