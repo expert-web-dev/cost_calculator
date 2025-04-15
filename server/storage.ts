@@ -89,9 +89,18 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createMoveEstimate(insertEstimate: InsertMoveEstimate): Promise<MoveEstimate> {
+    const estimateData = {
+      ...insertEstimate,
+      // Ensure all fields have proper types
+      userId: insertEstimate.userId || null,
+      additionalItems: insertEstimate.additionalItems || null,
+      flexibility: insertEstimate.flexibility || null,
+      services: insertEstimate.services || []
+    };
+    
     const [estimate] = await db
       .insert(movingEstimates)
-      .values(insertEstimate)
+      .values(estimateData)
       .returning();
     return estimate;
   }
@@ -106,8 +115,8 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Uncomment this line to use DatabaseStorage
-export const storage = new DatabaseStorage();
+// Uncomment this line to use DatabaseStorage when database is available
+// export const storage = new DatabaseStorage();
 
-// Use this line for fallback to in-memory storage if needed
-// export const storage = new MemStorage();
+// Use in-memory storage for now until we have a proper database connection
+export const storage = new MemStorage();

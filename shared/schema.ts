@@ -1,5 +1,6 @@
-import { pgTable, text, serial, integer, boolean, date, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, date, json, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { relations } from "drizzle-orm";
 import { z } from "zod";
 
 // User schema (keeping this as it's in the original file)
@@ -16,6 +17,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Define relations after all tables are defined
 
 // Moving calculation schemas
 export const movingEstimates = pgTable("moving_estimates", {
@@ -96,3 +99,15 @@ export const insertMoveEstimateSchema = createInsertSchema(movingEstimates).omit
 
 export type InsertMoveEstimate = z.infer<typeof insertMoveEstimateSchema>;
 export type MoveEstimate = typeof movingEstimates.$inferSelect;
+
+// Define table relationships
+export const usersRelations = relations(users, ({ many }) => ({
+  estimates: many(movingEstimates),
+}));
+
+export const movingEstimatesRelations = relations(movingEstimates, ({ one }) => ({
+  user: one(users, {
+    fields: [movingEstimates.userId],
+    references: [users.id],
+  }),
+}));
