@@ -5,8 +5,12 @@ import { moveCalculationRequestSchema, type MoveCalculationResponse } from "@sha
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { ADDITIONAL_ITEM_COSTS, BASE_COSTS, COST_PER_MILE, SAMPLE_COMPANIES } from "../client/src/lib/constants";
+import { setupAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication
+  setupAuth(app);
+  
   // API endpoint to calculate moving costs
   app.post('/api/calculate-moving-costs', async (req: Request, res: Response) => {
     try {
@@ -46,13 +50,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // API endpoint to retrieve moving cost history (if needed)
+  // API endpoint to retrieve all moving estimates
   app.get('/api/moving-estimates', async (req: Request, res: Response) => {
     try {
       const estimates = await storage.getAllMoveEstimates();
       res.json(estimates);
     } catch (error) {
       console.error('Error retrieving moving estimates:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // API endpoint to retrieve user's moving estimates
+  app.get('/api/my-estimates', async (req, res) => {
+    // Check if user is authenticated
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      const estimates = await storage.getUserEstimates(userId);
+      res.json(estimates);
+    } catch (error) {
+      console.error('Error retrieving user estimates:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // API endpoint to save a move estimate for logged in user
+  app.post('/api/save-estimate', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    
+    try {
+      const userId = req.user!.id;
+      const estimateData = req.body;
+      
+      // Add the user ID to the estimate
+      const estimateWithUser = {
+        ...estimateData,
+        userId
+      };
+      
+      const estimate = await storage.createMoveEstimate(estimateWithUser);
+      res.status(201).json(estimate);
+    } catch (error) {
+      console.error('Error saving estimate:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
